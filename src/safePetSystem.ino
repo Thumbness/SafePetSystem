@@ -11,6 +11,8 @@
 #define SWITCH_PIN D4
 #define BUZZER_PIN D6
 
+#define FORCE_PIN A2
+
 /*
  * Project safePetSystem
  * Description:
@@ -26,6 +28,7 @@ unsigned long card;
 unsigned long uid;
 bool inProximity;
 int switchState;
+int pressureReading;
 
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 
@@ -55,6 +58,7 @@ void setup() {
   lidServo.attach(L_SERVO_PIN);
   pinMode(SWITCH_PIN, INPUT);
   pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(FORCE_PIN, INPUT);
 
   Particle.subscribe("Press-A-Button", buzzerToggle);
   Particle.subscribe("Pet_Status", buzzerToggle);
@@ -120,7 +124,7 @@ void ExpelFeed(){
 void OpenLid()
 {
   lidServo.write(110);
-  delay(30000);
+  delay(15000);
   lidServo.write(0);
 }
 
