@@ -1,68 +1,90 @@
 #include "Arduino.h"
 #include "MFRC522.h"
 
+
 #define SS_PIN A5
 #define RST_PIN A2
 
 #define F_SERVO_PIN D2
 #define L_SERVO_PIN D5
+
 #define SWITCH_PIN D4
+#define BUZZER_PIN D6
 
 /*
  * Project safePetSystem
  * Description:
- * Author:
+ * Author: Thomas Morgan
  * Date:
  */
 
+
+
 Servo feedServo;
 Servo lidServo;
-
 unsigned long card;
-
+unsigned long uid;
 bool inProximity;
 int switchState;
+
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 
 
-// setup() runs once, when the device is first turned on.
+void buzzerToggle(const char *event, const char *data) {
+    
+    std::string temp = (std::string)data;
+    Particle.publish(data);
+    
+    if(temp == "inside" || temp == "movement")
+    {
+      tone(BUZZER_PIN, 600, 2000);
+    }
+}
+
 void setup() {
+  Time.zone(-2);
   Serial.begin(9600);
 
   mfrc522.setSPIConfig();
   mfrc522.PCD_Init(); 
-  Serial.println("Scan a MIFARE Classic PICC to demonstrate Value Blocks.");
-  
   card = setupCard();
-  Serial.print(card);
-  // Put initialization like pinMode and begin functions here.
+  Serial.println(card);
+  
+  
   feedServo.attach(F_SERVO_PIN);
   lidServo.attach(L_SERVO_PIN);
   pinMode(SWITCH_PIN, INPUT);
-  
+  pinMode(BUZZER_PIN, OUTPUT);
 
+  Particle.subscribe("Press-A-Button", buzzerToggle);
+  Particle.subscribe("Pet_Status", buzzerToggle);
 }
 
 void loop() {
   switchState = digitalRead(SWITCH_PIN);
   if(switchState == HIGH)
   {
-    ManualPress();
-    Serial.print(card);
+    ExpelFeed();
+    Serial.println("Button Pressed");
+    Serial.print(Time.hourFormat12());
+    Serial.println(uid);
   }
 
   if(CardRead(card))
   {
-    ManualPress();
-    Serial.print(card);
+    ExpelFeed();
+    OpenLid();
+    Serial.println(card);
   }
-
+  delay(300);
 }
 //Scans for Card ID
 bool CardRead(unsigned long &card)
-{
+{ 
+
   if(mfrc522.PICC_IsNewCardPresent()) {
-    unsigned long uid = getID();
+    uid = getID();
+    
       Serial.print("Card detected, UID: "); Serial.println(uid);
       if(card == uid)
       {
@@ -86,26 +108,35 @@ unsigned long getID(){
   return hex_num;
 }
 //press for servo motor function
-void ManualPress(){
-  Serial.print(switchState);
-    feedServo.attach(F_SERVO_PIN);
-    Serial.print(switchState);
+void ExpelFeed(){
+  
+    feedServo.attach(F_SERVO_PIN); 
     feedServo.write(180);
-    lidServo.write(110);
     delay(2000);
-    lidServo.write(0);
     feedServo.detach();
     delay(2000);
 }
 
+void OpenLid()
+{
+  lidServo.write(110);
+  delay(30000);
+  lidServo.write(0);
+}
+
 unsigned long setupCard()
 {
-  Serial.print("Setup Card: ");
+  Serial.println("Scan new card: ");
   while(! mfrc522.PICC_IsNewCardPresent())
   {
 
   }
+  tone(BUZZER_PIN, 500, 2000);
   Serial.print("Done!");
   unsigned long result = getID();
+  std::string s = std::to_string(result);
+  char const *pchar = s.c_str(); 
+  Particle.publish("Card_ID", pchar);
   return result;
 }
+
