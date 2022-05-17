@@ -1,17 +1,18 @@
-#include "Arduino.h"
 #include "MFRC522.h"
 
-
-#define SS_PIN A5
 #define RST_PIN A2
+#define SS_PIN A5
 
+
+
+#define YELLOW_LED D0
+#define GREEN_LED D1
 #define F_SERVO_PIN D2
-#define L_SERVO_PIN D5
-
+#define BLUE_LED D3
 #define SWITCH_PIN D4
+#define L_SERVO_PIN D5
 #define BUZZER_PIN D6
 
-#define FORCE_PIN A2
 
 /*
  * Project safePetSystem
@@ -26,9 +27,8 @@ Servo feedServo;
 Servo lidServo;
 unsigned long card;
 unsigned long uid;
-bool inProximity;
 int switchState;
-int pressureReading;
+
 
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 
@@ -38,9 +38,36 @@ void buzzerToggle(const char *event, const char *data) {
     std::string temp = (std::string)data;
     Particle.publish(data);
     
-    if(temp == "inside" || temp == "movement")
-    {
-      tone(BUZZER_PIN, 600, 2000);
+    if(temp == "inside")
+    { 
+      digitalWrite(GREEN_LED, HIGH);
+      digitalWrite(YELLOW_LED,LOW);
+      tone(BUZZER_PIN, 200, 200);
+      delay(200);
+      tone(BUZZER_PIN, 300, 200);
+      delay(200);
+      tone(BUZZER_PIN, 400, 200);
+      delay(200);
+      tone(BUZZER_PIN, 500, 200);
+      delay(200);
+      tone(BUZZER_PIN, 600, 200);
+      delay(200);
+      Serial.print("inside");
+    }
+    if(temp == "outside")
+    { 
+      digitalWrite(GREEN_LED, LOW);
+      digitalWrite(YELLOW_LED,HIGH);
+      tone(BUZZER_PIN, 600, 200);
+      delay(200);
+      tone(BUZZER_PIN, 500, 200);
+      delay(200);
+      tone(BUZZER_PIN, 400, 200);
+      delay(200);
+      tone(BUZZER_PIN, 300, 200);
+      delay(200);
+      tone(BUZZER_PIN, 200, 200);
+      Serial.print("outisde");
     }
 }
 
@@ -50,7 +77,7 @@ void setup() {
 
   mfrc522.setSPIConfig();
   mfrc522.PCD_Init(); 
-  card = setupCard();
+  card = InitFeeder();
   Serial.println(card);
   
   
@@ -59,9 +86,11 @@ void setup() {
   pinMode(SWITCH_PIN, INPUT);
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(FORCE_PIN, INPUT);
+  pinMode(YELLOW_LED, OUTPUT);
+  pinMode(GREEN_LED, OUTPUT);
+  pinMode(BLUE_LED, OUTPUT);
 
-  Particle.subscribe("Press-A-Button", buzzerToggle);
-  Particle.subscribe("Pet_Status", buzzerToggle);
+  Particle.subscribe("Pet_status", buzzerToggle);
 }
 
 void loop() {
@@ -128,13 +157,17 @@ void OpenLid()
   lidServo.write(0);
 }
 
-unsigned long setupCard()
+unsigned long InitFeeder()
 {
   Serial.println("Scan new card: ");
-  while(! mfrc522.PICC_IsNewCardPresent())
+  do
   {
+    digitalWrite(BLUE_LED, HIGH);
+    delay(500);
+    digitalWrite(BLUE_LED, LOW);
+    delay(500);
+  }while(! mfrc522.PICC_IsNewCardPresent());
 
-  }
   tone(BUZZER_PIN, 500, 2000);
   Serial.print("Done!");
   unsigned long result = getID();
