@@ -7,5 +7,6 @@
     },
     "particle.firmwareVersion": "2.3.0",
     "particle.targetPlatform": "argon",
-    "particle.targetDevice": "zombie_pirate"
+    "particle.targetDevice": "zombie_pirate",
+    "C_Cpp.errorSquiggles": "Disabled"
 }

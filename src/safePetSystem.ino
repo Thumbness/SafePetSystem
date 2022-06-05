@@ -1,15 +1,26 @@
 #include "MFRC522.h"
+#include "Particle.h"
+#include "neopixel/neopixel.h"
+
+
+SYSTEM_MODE(AUTOMATIC);
 
 #define RST_PIN A2
 #define SS_PIN A5
 
 #define YELLOW_LED D0
 #define GREEN_LED D1
-#define F_SERVO_PIN D2
+#define F_SERVO_PIN D7
 #define BLUE_LED D3
 #define SWITCH_PIN D4
 #define L_SERVO_PIN D5
 #define BUZZER_PIN D6
+
+#define PIXEL_COUNT 12
+#define PIXEL_PIN D2
+#define PIXEL_TYPE WS2812
+
+
 
 /*
  * Project safePetSystem
@@ -23,10 +34,12 @@ Servo lidServo;
 unsigned long card;
 unsigned long uid;
 int switchState;
+int timeCounter;
 bool inside;
 bool initSetup;
 
 MFRC522 mfrc522(SS_PIN, RST_PIN);
+Adafruit_NeoPixel strip(PIXEL_COUNT, PIXEL_PIN, PIXEL_TYPE);
 
 void buzzerToggle(const char *event, const char *data);
 bool CardRead(unsigned long &card);
@@ -36,9 +49,18 @@ void OpenLid();
 unsigned long InitFeeder();
 void PetInside();
 void PetOutside();
+void SetSchedule();
+void SetLEDStrip();
+
 
 void setup()
 {
+  
+  strip.begin();
+  strip.setBrightness(50);
+  strip.show();
+
+  timeCounter = 1;
   initSetup = false;
   Time.zone(-2);
   Serial.begin(9600);
@@ -62,29 +84,57 @@ void setup()
 void loop()
 {
   switchState = digitalRead(SWITCH_PIN);
-  if(!initSetup)
+  if (!initSetup)
   {
     card = InitFeeder();
   }
-
-  if (switchState == HIGH)
-  {
-    ExpelFeed();
-    Serial.println("Button Pressed");
-    Serial.print(Time.hourFormat12());
-    Serial.println(uid);
-  }
+  SetSchedule();
 
   if (CardRead(card))
   {
-    ExpelFeed();
-    OpenLid();
-    Particle.publish("Pet_Fed", "true");
+    if(timeCounter == Time.hourFormat12())
+    {
+      ExpelFeed();
+      OpenLid();
+      Particle.publish("Pet_Fed", "true");
+    }
+    else
+    {
+      tone(BUZZER_PIN, 600, 200);
+      delay(200);
+      tone(BUZZER_PIN, 600, 200);
+      delay(200);
+      Particle.publish("Pet_Fed", "false");
+    }
   }
-  delay(300);
+  delay(100);
 }
 
 /////////////////////////////////////////////////////////////////
+void SetSchedule()
+{
+  if(switchState == HIGH)
+  {
+    timeCounter += 1;
+     if(timeCounter > 12)
+     {
+       timeCounter = 1;
+     }
+    SetLEDStrip();
+    Serial.println(timeCounter);
+    tone(BUZZER_PIN, 200, 200);
+    delay(200);
+  }
+}
+
+void SetLEDStrip()
+{
+  strip.clear();
+  strip.setPixelColor(timeCounter, 0,0,255);
+  strip.show();
+}
+
+/////////////////////////////
 
 void buzzerToggle(const char *event, const char *data)
 {
@@ -150,13 +200,11 @@ bool CardRead(unsigned long &card)
       PetInside();
       return true;
     }
-    Particle.publish("Pet_Fed", "false");
+
     return false;
   }
-  Particle.publish("Pet_Fed", "false");
   return false;
 }
-
 
 // get RFID tag ID
 unsigned long getID()
@@ -174,25 +222,22 @@ unsigned long getID()
   return hex_num;
 }
 
-
 void ExpelFeed()
 {
 
   feedServo.attach(F_SERVO_PIN);
-  feedServo.write(180);
-  delay(2000);
+  feedServo.write(90);
+  delay(5000);
   feedServo.detach();
   delay(2000);
 }
 
-
 void OpenLid()
 {
   lidServo.write(110);
-  delay(15000);
+  delay(30000);
   lidServo.write(0);
 }
-
 
 unsigned long InitFeeder()
 {
@@ -203,6 +248,7 @@ unsigned long InitFeeder()
     delay(500);
     digitalWrite(BLUE_LED, LOW);
     delay(500);
+    strip.clear();
   } while (!mfrc522.PICC_IsNewCardPresent());
 
   tone(BUZZER_PIN, 500, 2000);
