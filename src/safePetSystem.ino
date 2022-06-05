@@ -38,9 +38,11 @@ int timeCounter;
 bool inside;
 bool initSetup;
 
+//construct RFID and LED ring hardware objects:
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 Adafruit_NeoPixel strip(PIXEL_COUNT, PIXEL_PIN, PIXEL_TYPE);
 
+// Method/Functions pre set:
 void buzzerToggle(const char *event, const char *data);
 bool CardRead(unsigned long &card);
 unsigned long getID();
@@ -51,25 +53,29 @@ void PetInside();
 void PetOutside();
 void SetSchedule();
 void SetLEDStrip();
+void FeedPet();
 
 
 void setup()
 {
-  
+  //init LED ring
   strip.begin();
   strip.setBrightness(50);
   strip.show();
 
+  //init time and setup functionality
   timeCounter = 1;
   initSetup = false;
   Time.zone(-2);
   Serial.begin(9600);
 
+  // init RFID sensor
   mfrc522.setSPIConfig();
   mfrc522.PCD_Init();
   mfrc522.PCD_SetAntennaGain(mfrc522.RFCfgReg);
   Serial.println(card);
 
+  //init pin modes
   feedServo.attach(F_SERVO_PIN);
   lidServo.attach(L_SERVO_PIN);
   pinMode(SWITCH_PIN, INPUT);
@@ -78,41 +84,22 @@ void setup()
   pinMode(GREEN_LED, OUTPUT);
   pinMode(BLUE_LED, OUTPUT);
 
+  //Particle cloud subscriptions for door device communication
   Particle.subscribe("Pet_status", buzzerToggle);
 }
 
 void loop()
-{
-  switchState = digitalRead(SWITCH_PIN);
-  if (!initSetup)
-  {
-    card = InitFeeder();
-  }
-  SetSchedule();
-
-  if (CardRead(card))
-  {
-    if(timeCounter == Time.hourFormat12())
-    {
-      ExpelFeed();
-      OpenLid();
-      Particle.publish("Pet_Fed", "true");
-    }
-    else
-    {
-      tone(BUZZER_PIN, 600, 200);
-      delay(200);
-      tone(BUZZER_PIN, 600, 200);
-      delay(200);
-      Particle.publish("Pet_Fed", "false");
-    }
-  }
+{ 
+  if (!initSetup){card = InitFeeder();}//checks if pet tag/card has been registered to devices
+  SetSchedule();//Sets the feed schedule
+  FeedPet();//Checks if card has been read and serves food if time == schedule
   delay(100);
 }
 
 /////////////////////////////////////////////////////////////////
 void SetSchedule()
-{
+{ 
+  switchState = digitalRead(SWITCH_PIN);
   if(switchState == HIGH)
   {
     timeCounter += 1;
@@ -134,7 +121,28 @@ void SetLEDStrip()
   strip.show();
 }
 
-/////////////////////////////
+void FeedPet()
+{
+  if (CardRead(card))
+  {
+    if(timeCounter == Time.hourFormat12())
+    {
+      ExpelFeed();
+      OpenLid();
+      Particle.publish("Pet_Fed", "true");
+    }
+    else
+    {
+      tone(BUZZER_PIN, 600, 200);
+      delay(200);
+      tone(BUZZER_PIN, 600, 200);
+      delay(200);
+      Particle.publish("Pet_Fed", "false");
+    }
+  }
+}
+
+///////////////////////////////////////////////
 
 void buzzerToggle(const char *event, const char *data)
 {
