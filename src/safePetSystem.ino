@@ -102,12 +102,12 @@ void SetSchedule()
   switchState = digitalRead(SWITCH_PIN);
   if(switchState == HIGH)
   {
-    timeCounter += 1;
-     if(timeCounter > 12)
+    timeCounter += 1; // button press increments LED RING time + 1
+     if(timeCounter > 12) // if schedule time set exceeds am/pm 12 hour format
      {
        timeCounter = 1;
      }
-    SetLEDStrip();
+    SetLEDStrip(); // sets LED ring 
     Serial.println(timeCounter);
     tone(BUZZER_PIN, 200, 200);
     delay(200);
@@ -117,19 +117,19 @@ void SetSchedule()
 void SetLEDStrip()
 {
   strip.clear();
-  strip.setPixelColor(timeCounter, 0,0,255);
+  strip.setPixelColor(timeCounter, 0,0,255); //updates led ring to user set time schedule visual
   strip.show();
 }
 
 void FeedPet()
 {
-  if (CardRead(card))
+  if (CardRead(card)) // returns true if scanned tag == registered tag on device
   {
     if(timeCounter == Time.hourFormat12())
     {
       ExpelFeed();
       OpenLid();
-      Particle.publish("Pet_Fed", "true");
+      Particle.publish("Pet_Fed", "true"); // publish for IFTTT trigger
     }
     else
     {
@@ -137,7 +137,7 @@ void FeedPet()
       delay(200);
       tone(BUZZER_PIN, 600, 200);
       delay(200);
-      Particle.publish("Pet_Fed", "false");
+      Particle.publish("Pet_Fed", "false"); // publish for IFTTT trigger
     }
   }
 }
@@ -148,19 +148,19 @@ void buzzerToggle(const char *event, const char *data)
 {
 
   std::string temp = (std::string)data;
-  Particle.publish(data);
+  Particle.publish(data); // publish for IFTTT trigger
 
   if (temp == "inside")
   {
-    PetInside();
+    PetInside(); //update system LED state
   }
   if (temp == "outside")
   {
-    PetOutside();
+    PetOutside(); //update system LED state
   }
 }
 
-void PetInside()
+void PetInside() // updates system LED's
 {
   digitalWrite(GREEN_LED, HIGH);
   digitalWrite(YELLOW_LED, LOW);
@@ -177,7 +177,7 @@ void PetInside()
   Serial.print("inside");
 }
 
-void PetOutside()
+void PetOutside() //updates system LED's
 {
   digitalWrite(GREEN_LED, LOW);
   digitalWrite(YELLOW_LED, HIGH);
@@ -199,13 +199,13 @@ bool CardRead(unsigned long &card)
 
   if (mfrc522.PICC_IsNewCardPresent())
   {
-    uid = getID();
+    uid = getID(); // stores scanned card onto device for comparison
 
     Serial.print("Card detected, UID: ");
     Serial.println(uid);
-    if (card == uid)
+    if (card == uid) // if registered card == new scanned card
     {
-      PetInside();
+      PetInside(); //updates system state
       return true;
     }
 
@@ -218,7 +218,7 @@ bool CardRead(unsigned long &card)
 unsigned long getID()
 {
   if (!mfrc522.PICC_ReadCardSerial())
-  { // Since a PICC placed get Serial and continue
+  {  // if no card detected return 
     return -1;
   }
   unsigned long int hex_num;
@@ -226,8 +226,8 @@ unsigned long getID()
   hex_num += mfrc522.uid.uidByte[1] << 16;
   hex_num += mfrc522.uid.uidByte[2] << 8;
   hex_num += mfrc522.uid.uidByte[3];
-  mfrc522.PICC_HaltA(); // Stop reading
-  return hex_num;
+  mfrc522.PICC_HaltA(); // Stop reading from card (UID needed only for device)
+  return hex_num; //returns UID from card
 }
 
 void ExpelFeed()
@@ -250,7 +250,7 @@ void OpenLid()
 unsigned long InitFeeder()
 {
   Serial.println("Scan new card: ");
-  do
+  do // stays in loop waiting for initial card to be registered
   {
     digitalWrite(BLUE_LED, HIGH);
     delay(500);
@@ -261,10 +261,10 @@ unsigned long InitFeeder()
 
   tone(BUZZER_PIN, 500, 2000);
   Serial.print("Done!");
-  card = getID();
-  std::string s = std::to_string(card);
-  char const *pchar = s.c_str();
-  Particle.publish("Card_ID", pchar);
+  card = getID(); // stores first card/tag in memory
+  std::string s = std::to_string(card) // converts unsigned long to string
+  char const *pchar = s.c_str(); // converts string to char
+  Particle.publish("Card_ID", pchar); // publishes char for door device to register
   initSetup = true;
-  return card;
+  return card; // returns registered card and stores in memory
 }
